@@ -8,7 +8,7 @@ if response(1)==0x55
     data = response(2:17);
     checksum = response(18);
     eop = response(19);
-    
+
     if eop==0xAA && data(1)==expectedID
         response = data;
 
@@ -26,9 +26,11 @@ if response(1)==0x55
         end
 
         % Save data
+        s.Tag = '1';
         buffer = s.UserData;
         buffer(end+1,:) = [datevec(evt.AbsTime),Fx,Fy,Fz,Tx,Ty,Tz];
         s.UserData = buffer;
+        s.Tag = '0';
     end
 end
 end

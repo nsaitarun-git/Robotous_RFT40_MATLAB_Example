@@ -1,3 +1,6 @@
+% This example code is for the Robotous RFT40 Force / Torque sensor.
+% Run the code sequentially for stable operation.
+%%
 clc;clear;close all;
 %% Define commands
 COMMNAD_READ_MODEL_NAME               = uint8([0x01,0,0,0,0,0,0,0]);
@@ -67,6 +70,18 @@ end
 cmdFilter = [0x08,1,10,0,0,0,0,0]; %Cut-off 10Hz
 sendCommand(s, cmdFilter);
 pause(0.1);
+%% Create timer for plotting data in real-time
+hold on;
+pltX = plot(0,0);
+pltY = plot(0,0);
+pltZ = plot(0,0);
+xlabel("Number of Samples")
+ylabel("Force (N)")
+legend(["X","Y","Z"],'Location','northwest')
+
+% Create timer
+plotTimer = timer("ExecutionMode","fixedRate","Period",0.1);
+plotTimer.TimerFcn = @(plotTimer,evt) plotData(plotTimer,evt,s,pltX,pltY,pltZ);
 %% Start Data aquisition
 
 % Hard tare (zero-balance)
@@ -81,15 +96,26 @@ sendCommand(s, COMMAND_START_FT_DATA_OUTPUT);
 pause(0.1);
 
 % Execute callback function when 19 bytes of data is available
-configureCallback(s,"byte",19,@(s,evt) bytesCallback(s,evt,ID_START_FT_DATA_OUTPUT,1,offsets))
-pause(10); % Aquire data for some time
-configureCallback(s,"off")
+configureCallback(s,"byte",19,@(s,evt) bytesCallback(s,evt, ...
+    ID_START_FT_DATA_OUTPUT,1,offsets))
+start(plotTimer) % Start timer to plot data
+
+pause(20) % Aquire data for some time
+
+stop(plotTimer) % Stop timer
+configureCallback(s,"off") % Disable callback
 
 % Stop FT data output
 sendCommand(s, COMMAND_STOP_FT_DATA_OUTPUT);
 pause(0.1);
-%% Plot aquired data
+
+% Copy recorded data
 data = s.UserData;
+
+% Clean up
+delete(s)
+clear s;
+%% Plot aquired data
 timeStamps = data(:,6);
 
 % Adjust absolute time to elapsed time
@@ -105,6 +131,7 @@ for i = 2:length(timeStamps)
 end
 
 % Plot forces
+close all;
 subplot(2,1,1)
 hold on;
 plot(elapsed,data(:,7))
