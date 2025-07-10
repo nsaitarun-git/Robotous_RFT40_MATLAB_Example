@@ -1,9 +1,6 @@
-<<<<<<< HEAD
 % This example code is for the Robotous RFT40 Force / Torque sensor.
 % Run the code sequentially for stable operation.
 %%
-=======
->>>>>>> 762e46dd1eb658fc419dbb7a7c0103a68b0b061a
 clc;clear;close all;
 %% Define commands
 COMMNAD_READ_MODEL_NAME               = uint8([0x01,0,0,0,0,0,0,0]);
@@ -73,7 +70,6 @@ end
 cmdFilter = [0x08,1,10,0,0,0,0,0]; %Cut-off 10Hz
 sendCommand(s, cmdFilter);
 pause(0.1);
-<<<<<<< HEAD
 %% Create timer for plotting data in real-time
 hold on;
 pltX = plot(0,0);
@@ -86,8 +82,6 @@ legend(["X","Y","Z"],'Location','northwest')
 % Create timer
 plotTimer = timer("ExecutionMode","fixedRate","Period",0.1);
 plotTimer.TimerFcn = @(plotTimer,evt) plotData(plotTimer,evt,s,pltX,pltY,pltZ);
-=======
->>>>>>> 762e46dd1eb658fc419dbb7a7c0103a68b0b061a
 %% Start Data aquisition
 
 % Hard tare (zero-balance)
@@ -102,7 +96,6 @@ sendCommand(s, COMMAND_START_FT_DATA_OUTPUT);
 pause(0.1);
 
 % Execute callback function when 19 bytes of data is available
-<<<<<<< HEAD
 configureCallback(s,"byte",19,@(s,evt) bytesCallback(s,evt, ...
     ID_START_FT_DATA_OUTPUT,1,offsets))
 start(plotTimer) % Start timer to plot data
@@ -111,16 +104,10 @@ pause(20) % Aquire data for some time
 
 stop(plotTimer) % Stop timer
 configureCallback(s,"off") % Disable callback
-=======
-configureCallback(s,"byte",19,@(s,evt) bytesCallback(s,evt,ID_START_FT_DATA_OUTPUT,1,offsets))
-pause(10); % Aquire data for some time
-configureCallback(s,"off")
->>>>>>> 762e46dd1eb658fc419dbb7a7c0103a68b0b061a
 
 % Stop FT data output
 sendCommand(s, COMMAND_STOP_FT_DATA_OUTPUT);
 pause(0.1);
-<<<<<<< HEAD
 
 % Copy recorded data
 data = s.UserData;
@@ -129,10 +116,6 @@ data = s.UserData;
 delete(s)
 clear s;
 %% Plot aquired data
-=======
-%% Plot aquired data
-data = s.UserData;
->>>>>>> 762e46dd1eb658fc419dbb7a7c0103a68b0b061a
 timeStamps = data(:,6);
 
 % Adjust absolute time to elapsed time
@@ -148,10 +131,7 @@ for i = 2:length(timeStamps)
 end
 
 % Plot forces
-<<<<<<< HEAD
 close all;
-=======
->>>>>>> 762e46dd1eb658fc419dbb7a7c0103a68b0b061a
 subplot(2,1,1)
 hold on;
 plot(elapsed,data(:,7))
@@ -173,8 +153,4 @@ plot(elapsed,data(:,12))
 xlabel("Time (s)")
 ylabel("Torque (N/m)")
 legend(["X","Y","Z"])
-<<<<<<< HEAD
 title("Torques")
-=======
-title("Torques")
->>>>>>> 762e46dd1eb658fc419dbb7a7c0103a68b0b061a
