@@ -29,7 +29,6 @@ if response(1)==0x55
         % Save data
         s.Tag = '1';
         buffer = s.UserData;
-        %datevec(evt.AbsTime)
         buffer(end+1,:) = [tEnd,Fx,Fy,Fz,Tx,Ty,Tz];
         s.UserData = buffer;
         s.Tag = '0';
