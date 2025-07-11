@@ -3,7 +3,7 @@ try
     % Read data only when its not being written
     if s.Tag == '0'
         % Read available data
-        data = s.UserData(:,7:12);
+        data = s.UserData(:,2:7);
         samples = linspace(0,numel(data(:,3)),numel(data(:,3)));
 
         % Add data to plots

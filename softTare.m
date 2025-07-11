@@ -12,8 +12,9 @@ sendCommand(s, COMMAND_START_FT_DATA_OUTPUT);
 pause(0.1);
 
 % Execute callback function when 19 bytes of data is available
+tStart = tic;
 configureCallback(s,"byte",19,@(s,evt) bytesCallback(s,evt, ...
-    ID_START_FT_DATA_OUTPUT,0,offsets))
+    ID_START_FT_DATA_OUTPUT,0,offsets,tStart))
 pause(2); % Aquire data for some time
 configureCallback(s,"off")
 
@@ -24,7 +25,7 @@ pause(0.1);
 % Calculate offsets
 data = s.UserData;
 s.UserData = [];
-offsets = mean(data(:,7:12),1);
+offsets = mean(data(:,2:7),1);
 
 flush(s);
 disp("Soft Tare Complete")

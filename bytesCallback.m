@@ -1,4 +1,5 @@
-function bytesCallback(s,evt,expectedID,flag,offsets)
+function bytesCallback(s,evt,expectedID,flag,offsets,tStart)
+tEnd = toc(tStart); % Timestamp
 
 DF = 50;    % force scale
 DT = 1000;  % torque scale
@@ -28,7 +29,8 @@ if response(1)==0x55
         % Save data
         s.Tag = '1';
         buffer = s.UserData;
-        buffer(end+1,:) = [datevec(evt.AbsTime),Fx,Fy,Fz,Tx,Ty,Tz];
+        %datevec(evt.AbsTime)
+        buffer(end+1,:) = [tEnd,Fx,Fy,Fz,Tx,Ty,Tz];
         s.UserData = buffer;
         s.Tag = '0';
     end

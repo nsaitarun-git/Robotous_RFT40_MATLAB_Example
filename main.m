@@ -66,8 +66,8 @@ resp = readResponse(s, ID_READ_DATA_OUTPUT_RATE);
 if ~isempty(resp)
     disp("Output Rate: " + resp(1) + "," + resp(2));
 end
-%% Set filter (type=1, parameter=10)
-cmdFilter = [0x08,1,10,0,0,0,0,0]; %Cut-off 10Hz
+%% Set filter (type=1, parameter)
+cmdFilter = [0x08,1,14,0,0,0,0,0]; %Cut-off 1Hz
 sendCommand(s, cmdFilter);
 pause(0.1);
 %% Create timer for plotting data in real-time
@@ -96,8 +96,9 @@ sendCommand(s, COMMAND_START_FT_DATA_OUTPUT);
 pause(0.1);
 
 % Execute callback function when 19 bytes of data is available
+tStart = tic; %Use for precise timestamps
 configureCallback(s,"byte",19,@(s,evt) bytesCallback(s,evt, ...
-    ID_START_FT_DATA_OUTPUT,1,offsets))
+    ID_START_FT_DATA_OUTPUT,1,offsets,tStart))
 start(plotTimer) % Start timer to plot data
 
 pause(20) % Aquire data for some time
@@ -109,34 +110,28 @@ configureCallback(s,"off") % Disable callback
 sendCommand(s, COMMAND_STOP_FT_DATA_OUTPUT);
 pause(0.1);
 
-% Copy recorded data
+% Copy and save recorded data
 data = s.UserData;
+data(:,1) = data(:,1) - data(1,1); % Adjust time
+names = {'Timestamps','Fx','Fy','Fz',...
+    'Tx','Ty','Tz'};
+data = array2table(data,"VariableNames",names);
+writetable(data,sprintf('Data_%s.csv',string(datetime('today'))))
 
 % Clean up
 delete(s)
 clear s;
 %% Plot aquired data
-timeStamps = data(:,6);
-
-% Adjust absolute time to elapsed time
-elapsed = zeros(size(timeStamps));
-for i = 2:length(timeStamps)
-    if timeStamps(i) < timeStamps(i-1)
-        % A wrap-around occurred (e.g., 59 -> 0)
-        elapsed(i) = elapsed(i-1) + (timeStamps(i) + 60 - timeStamps(i-1));
-    else
-        % Normal time step
-        elapsed(i) = elapsed(i-1) + (timeStamps(i) - timeStamps(i-1));
-    end
-end
+data = table2array(data);
+timeStamps = data(:,1);
 
 % Plot forces
 close all;
 subplot(2,1,1)
 hold on;
-plot(elapsed,data(:,7))
-plot(elapsed,data(:,8))
-plot(elapsed,data(:,9))
+plot(timeStamps,data(:,2))
+plot(timeStamps,data(:,3))
+plot(timeStamps,data(:,4))
 
 xlabel("Time (s)")
 ylabel("Force (N)")
@@ -146,9 +141,9 @@ title("Forces")
 % Plot torques
 subplot(2,1,2)
 hold on;
-plot(elapsed,data(:,10))
-plot(elapsed,data(:,11))
-plot(elapsed,data(:,12))
+plot(timeStamps,data(:,5))
+plot(timeStamps,data(:,6))
+plot(timeStamps,data(:,7))
 
 xlabel("Time (s)")
 ylabel("Torque (N/m)")
