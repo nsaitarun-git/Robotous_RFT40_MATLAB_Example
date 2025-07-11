@@ -12,6 +12,7 @@ Matlab 2024a or above. Previous versions of Matlab that support ```serialport```
 
 ## Example Code 
 ```matlab
+%%
 clc;clear;close all;
 %% Define commands
 COMMNAD_READ_MODEL_NAME               = uint8([0x01,0,0,0,0,0,0,0]);
@@ -33,7 +34,6 @@ ID_START_FT_DATA_OUTPUT             = uint8(0x0B);
 ID_SET_DATA_OUTPUT_RATE             = uint8(0x0F);
 ID_READ_DATA_OUTPUT_RATE            = uint8(0x10);
 ID_READ_COUNT_OVERLOAD_OCCURRENCE   = uint8(0x12);
-
 %% Connect to Sensor
 port = "COM15";
 baudrate = 115200; % Default baudrate
@@ -42,11 +42,9 @@ baudrate = 115200; % Default baudrate
 s = serialport(port, baudrate);
 flush(s);
 pause(0.1);
-
 %% Stop FT data output first
 sendCommand(s, COMMAND_STOP_FT_DATA_OUTPUT);
 pause(0.1);
-
 %% Read model name
 sendCommand(s, COMMNAD_READ_MODEL_NAME);
 pause(0.1);
@@ -55,7 +53,6 @@ if ~isempty(resp)
     modelName = char(resp(2:end));
     disp("Model name: " + modelName);
 end
-
 %% Read serial number
 sendCommand(s, COMMAND_READ_SERIAL_NUMBER);
 pause(0.1);
@@ -64,7 +61,6 @@ if ~isempty(resp)
     serialNum = char(resp(2:end));
     disp("Serial number: " + serialNum);
 end
-
 %% Read baudrate
 sendCommand(s, COMMAND_READ_BAUDRATE);
 pause(0.1);
@@ -73,7 +69,6 @@ if ~isempty(resp)
     disp("Baudrate param1: " + resp(2));
     disp("Baudrate param2: " + resp(3));
 end
-
 %% Set data rate
 sendCommand(s, commandSetDataOutputRate(100));
 pause(0.1);
@@ -83,12 +78,22 @@ resp = readResponse(s, ID_READ_DATA_OUTPUT_RATE);
 if ~isempty(resp)
     disp("Output Rate: " + resp(1) + "," + resp(2));
 end
-
 %% Set filter (type=1, parameter=10)
 cmdFilter = [0x08,1,10,0,0,0,0,0]; %Cut-off 10Hz
 sendCommand(s, cmdFilter);
 pause(0.1);
+%% Create timer for plotting data in real-time
+hold on;
+pltX = plot(0,0);
+pltY = plot(0,0);
+pltZ = plot(0,0);
+xlabel("Number of Samples")
+ylabel("Force (N)")
+legend(["X","Y","Z"],'Location','northwest')
 
+% Create timer
+plotTimer = timer("ExecutionMode","fixedRate","Period",0.1);
+plotTimer.TimerFcn = @(plotTimer,evt) plotData(plotTimer,evt,s,pltX,pltY,pltZ);
 %% Start Data aquisition
 
 % Hard tare (zero-balance)
@@ -103,16 +108,26 @@ sendCommand(s, COMMAND_START_FT_DATA_OUTPUT);
 pause(0.1);
 
 % Execute callback function when 19 bytes of data is available
-configureCallback(s,"byte",19,@(s,evt) bytesCallback(s,evt,ID_START_FT_DATA_OUTPUT,1,offsets))
-pause(10); % Aquire data for some time
-configureCallback(s,"off")
+configureCallback(s,"byte",19,@(s,evt) bytesCallback(s,evt, ...
+    ID_START_FT_DATA_OUTPUT,1,offsets))
+start(plotTimer) % Start timer to plot data
+
+pause(20) % Aquire data for some time
+
+stop(plotTimer) % Stop timer
+configureCallback(s,"off") % Disable callback
 
 % Stop FT data output
 sendCommand(s, COMMAND_STOP_FT_DATA_OUTPUT);
 pause(0.1);
 
-%% Plot aquired data
+% Copy recorded data
 data = s.UserData;
+
+% Clean up
+delete(s)
+clear s;
+%% Plot aquired data
 timeStamps = data(:,6);
 
 % Adjust absolute time to elapsed time
@@ -128,6 +143,7 @@ for i = 2:length(timeStamps)
 end
 
 % Plot forces
+close all;
 subplot(2,1,1)
 hold on;
 plot(elapsed,data(:,7))
