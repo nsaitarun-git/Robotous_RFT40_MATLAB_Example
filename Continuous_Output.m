@@ -70,23 +70,30 @@ cmdFilter = [0x08,1,14,0,0,0,0,0]; %Cut-off 1Hz
 sendCommand(s, cmdFilter);
 pause(0.1);
 %% Initialize plots
+maxpoints = 200;
+
+fig = figure(1);
 subplot(2,1,1)
 hold on;box on;
-pltFx = animatedline('Color','r','MaximumNumPoints',1000);
-pltFy = animatedline('Color','g','MaximumNumPoints',1000);
-pltFz = animatedline('Color','b','MaximumNumPoints',1000);
+pltFx = animatedline('Color','r','MaximumNumPoints',maxpoints);
+pltFy = animatedline('Color','g','MaximumNumPoints',maxpoints);
+pltFz = animatedline('Color','b','MaximumNumPoints',maxpoints);
 xlabel("Samples")
 ylabel("Force (N)")
+title('Press (t) - Zero tare, (s) - Stop')
 legend(["X","Y","Z"],'Location','northwest')
 
 subplot(2,1,2)
 hold on;box on;
-pltTx = animatedline('Color','r','MaximumNumPoints',1000);
-pltTy = animatedline('Color','g','MaximumNumPoints',1000);
-pltTz = animatedline('Color','b','MaximumNumPoints',1000);
+pltTx = animatedline('Color','r','MaximumNumPoints',maxpoints);
+pltTy = animatedline('Color','g','MaximumNumPoints',maxpoints);
+pltTz = animatedline('Color','b','MaximumNumPoints',maxpoints);
 xlabel("Samples")
 ylabel("Torque (N/m)")
 legend(["X","Y","Z"],'Location','northwest')
+
+% Use a key press callback for zero tare
+fig.KeyPressFcn = @(fig,evt) keyCallback(fig,evt);
 %% Start Data aquisition
 
 % Hard tare (zero-balance)
@@ -95,14 +102,47 @@ legend(["X","Y","Z"],'Location','northwest')
 
 % Software tare
 offsets = softTare(s,ID_START_FT_DATA_OUTPUT);
+tareflag = 0;
 
 % Start FT data output
 sendCommand(s, COMMAND_START_FT_DATA_OUTPUT);
 pause(0.1);
 
-cnt = 1;
-while true
-    response = read(s,19,"uint8"); % Read 19 bytes of data
+counter = 1; % Counter for aquired samples
+stopflag = 0; % Stop main loop with flag
+
+%================================== Main =================================%
+while stopflag == 0
+
+    % Check for zero-tare command
+    if tareflag == 1
+        % Stop FT data output
+        sendCommand(s, COMMAND_STOP_FT_DATA_OUTPUT);
+        pause(0.1);
+
+        % Zero tare
+        sgtitle("Taring...")
+        offsets = softTare(s,ID_START_FT_DATA_OUTPUT);
+        tareflag = 0;
+        counter = 1;
+        sgtitle("Tare Complete")
+
+        % Clear plots
+        clearpoints(pltFx)
+        clearpoints(pltFy)
+        clearpoints(pltFz)
+        clearpoints(pltTx)
+        clearpoints(pltTy)
+        clearpoints(pltTz)
+
+        % Start FT data output
+        sendCommand(s, COMMAND_START_FT_DATA_OUTPUT);
+        pause(0.1);
+    end
+
+    % Read 19 bytes of data
+    flush(s);
+    response = read(s,19,"uint8");
 
     if response(1)==0x55
         data = response(2:17);
@@ -114,26 +154,41 @@ while true
             % Convert bytes to force / torques
             [Fx,Fy,Fz,Tx,Ty,Tz] = getFT(data,offsets);
 
-            if flag == 1
-                fprintf('%.4f, %.4f, %.4f, %.4f, %.4f, %.4f\n', Fx,Fy,Fz,Tx,Ty,Tz)
-            end
+            % Display data
+            msg = sprintf('Fx:%.3f, Fy:%.3f, Fz:%.3f, Tx:%.2f, Ty:%.3f, Tz:%.3f', ...
+                Fx,Fy,Fz,Tx,Ty,Tz);
+            sgtitle(msg)
+            disp(msg)
 
             % Add data to plots
-            addpoints(pltFx,cnt,Fx)
-            addpoints(pltFy,cnt,Fy)
-            addpoints(pltFz,cnt,Fz)
-            addpoints(pltTx,cnt,Tx)
-            addpoints(pltTy,cnt,Ty)
-            addpoints(pltTz,cnt,Tz)
-            cnt = cnt + 1;
+            addpoints(pltFx,counter,Fx)
+            addpoints(pltFy,counter,Fy)
+            addpoints(pltFz,counter,Fz)
+            addpoints(pltTx,counter,Tx)
+            addpoints(pltTy,counter,Ty)
+            addpoints(pltTz,counter,Tz)
+            drawnow;
+            counter = counter + 1;
         end
     end
 end
 
-%% Stop FT data output
+% Stop FT data output
 sendCommand(s, COMMAND_STOP_FT_DATA_OUTPUT);
 pause(0.1);
 
 % Clean up
 delete(s)
 clear s;
+sgtitle("Stopped")
+%% Callback
+function keyCallback(src,evt)
+% If 't' is pressed, zero-tare
+if evt.Character == 't'
+    tareflag = 1;
+    assignin("base","tareflag",tareflag)
+elseif evt.Character == 's'
+    stopflag = 1;
+    assignin("base","stopflag",stopflag)
+end
+end

@@ -80,7 +80,7 @@ ylabel("Force (N)")
 legend(["X","Y","Z"],'Location','northwest')
 
 % Create timer
-plotTimer = timer("ExecutionMode","fixedRate","Period",0.1);
+plotTimer = timer("ExecutionMode","fixedRate","Period",0.2);
 plotTimer.TimerFcn = @(plotTimer,evt) plotData(plotTimer,evt,s,pltX,pltY,pltZ);
 %% Start Data aquisition
 
@@ -91,47 +91,59 @@ plotTimer.TimerFcn = @(plotTimer,evt) plotData(plotTimer,evt,s,pltX,pltY,pltZ);
 % Software tare
 offsets = softTare(s,ID_START_FT_DATA_OUTPUT);
 
+% Pre-allocate data buffer
+buffsize = 4200;
+dataStruct.counter = 1;
+dataStruct.data = zeros(buffsize,6);
+s.UserData =  dataStruct;
+
 % Start FT data output
 sendCommand(s, COMMAND_START_FT_DATA_OUTPUT);
 pause(0.1);
+tStart = tic; % Start timing
 
 % Execute callback function when 19 bytes of data is available
-tStart = tic; %Use for precise timestamps
 configureCallback(s,"byte",19,@(s,evt) bytesCallback(s,evt, ...
-    ID_START_FT_DATA_OUTPUT,1,offsets,tStart))
+    ID_START_FT_DATA_OUTPUT,1,offsets))
 start(plotTimer) % Start timer to plot data
 
 pause(20) % Aquire data for some time
 
-stop(plotTimer) % Stop timer
 configureCallback(s,"off") % Disable callback
+tEnd = toc(tStart); % Stop timing
+stop(plotTimer) % Stop timer
 
 % Stop FT data output
 sendCommand(s, COMMAND_STOP_FT_DATA_OUTPUT);
 pause(0.1);
 
 % Copy and save recorded data
-data = s.UserData;
-data(:,1) = data(:,1) - data(1,1); % Adjust time
-names = {'Timestamps','Fx','Fy','Fz',...
+dataStruct = s.UserData;
+s.UserData = [];
+data = dataStruct.data;
+indexes = dataStruct.counter;
+data = data(1:indexes-1,:);
+
+% Time data
+time = linspace(0,tEnd,size(data,1));
+data = [time' data];
+names = {'Time','Fx','Fy','Fz',...
     'Tx','Ty','Tz'};
-data = array2table(data,"VariableNames",names);
-writetable(data,sprintf('Data_%s.csv',string(datetime('today'))))
+dataTable = array2table(data,"VariableNames",names);
+writetable(dataTable,sprintf('Data_%s.csv',string(datetime('today'))))
 
 % Clean up
 delete(s)
 clear s;
 %% Plot aquired data
-data = table2array(data);
-timeStamps = data(:,1);
 
 % Plot forces
 close all;
 subplot(2,1,1)
 hold on;
-plot(timeStamps,data(:,2))
-plot(timeStamps,data(:,3))
-plot(timeStamps,data(:,4))
+plot(time,data(:,2))
+plot(time,data(:,3))
+plot(time,data(:,4))
 
 xlabel("Time (s)")
 ylabel("Force (N)")
@@ -141,9 +153,9 @@ title("Forces")
 % Plot torques
 subplot(2,1,2)
 hold on;
-plot(timeStamps,data(:,5))
-plot(timeStamps,data(:,6))
-plot(timeStamps,data(:,7))
+plot(time,data(:,5))
+plot(time,data(:,6))
+plot(time,data(:,7))
 
 xlabel("Time (s)")
 ylabel("Torque (N/m)")
