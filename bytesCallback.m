@@ -1,5 +1,4 @@
-function bytesCallback(s,evt,expectedID,flag,offsets,tStart)
-tEnd = toc(tStart); % Timestamp
+function bytesCallback(s,~,expectedID,flag,offsets)
 
 response = read(s,19,"uint8"); % Read 19 bytes of data
 
@@ -18,8 +17,18 @@ if response(1)==0x55
 
         % Save data
         s.Tag = '1';
+        % Read stored data
         buffer = s.UserData;
-        buffer(end+1,:) = [tEnd,Fx,Fy,Fz,Tx,Ty,Tz];
+        counter = buffer.counter;
+        bufferData = buffer.data;
+
+        % Add data
+        bufferData(counter,:) = [Fx,Fy,Fz,Tx,Ty,Tz];
+        counter = counter + 1;
+
+        % Update data
+        buffer.data = bufferData;
+        buffer.counter = counter;
         s.UserData = buffer;
         s.Tag = '0';
     end
